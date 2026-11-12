@@ -299,8 +299,29 @@ function flashFull(need) {
   fullTimer = setTimeout(updatePanel, 1500);
 }
 
+function serializeSelection() {
+  return [...picked.keys()].map(id => choice.has(id) ? id + ':' + choice.get(id) : id).join(',');
+}
+
+function restoreSelection(ids) {
+  picked.clear();
+  choice.clear();
+  for (const item of ids.split(',')) {
+    if (!/^\d+(?::\d+)?$/.test(item)) continue;
+    const [id, c] = item.split(':').map(Number);
+    const n = byId.get(id);
+    if (!n || !selectable(n) || picked.size >= MAX_PICK) continue;
+    picked.set(n.id, n);
+    if (n.v && n.v[c]) choice.set(n.id, c);
+  }
+  const reach = linked(null);
+  for (const id of [...picked.keys()]) {
+    if (!reach.has(id)) { picked.delete(id); choice.delete(id); }
+  }
+}
+
 function selectionChanged() {
-  const ids = [...picked.keys()].map(id => choice.has(id) ? id + ':' + choice.get(id) : id).join(',');
+  const ids = serializeSelection();
   try { history.replaceState(null, '', ids ? '#s=' + ids : location.pathname + location.search); } catch (e) {}
   updatePanel();
   draw();
@@ -342,6 +363,7 @@ function updatePanel() {
   c.classList.toggle('full', n >= MAX_PICK);
   document.getElementById('badge').textContent = n;
   document.getElementById('empty').style.display = n ? 'none' : '';
+  document.getElementById('save-build').disabled = n === 0;
 
   const eff = document.getElementById('effects');
   eff.innerHTML = '';
@@ -385,27 +407,117 @@ function updatePanel() {
 
 document.getElementById('max').textContent = MAX_PICK;
 document.getElementById('clear').onclick = () => { picked.clear(); choice.clear(); selectionChanged(); };
-document.getElementById('toggle').onclick = () => {
-  panel.classList.toggle('hidden');
-  document.getElementById('toggle').classList.toggle('on', !panel.classList.contains('hidden'));
+function setPanelVisible(visible) {
+  panel.classList.toggle('hidden', !visible);
+  const toggleButton = document.getElementById('toggle');
+  toggleButton.classList.toggle('on', visible);
+  toggleButton.setAttribute('aria-expanded', String(visible));
+}
+document.getElementById('toggle').onclick = () => setPanelVisible(panel.classList.contains('hidden'));
+
+// Named builds stay on this browser; shared URLs remain independent of storage.
+const SAVES_KEY = 'poe-atlas-330-saved-builds-v1';
+const buildName = document.getElementById('build-name');
+const buildList = document.getElementById('build-list');
+const saveBuild = document.getElementById('save-build');
+const loadBuild = document.getElementById('load-build');
+const deleteBuild = document.getElementById('delete-build');
+const saveMessage = document.getElementById('save-message');
+
+function saveStatus(message, error = false) {
+  saveMessage.textContent = message;
+  saveMessage.classList.toggle('error', error);
+}
+
+function readBuilds() {
+  const value = JSON.parse(localStorage.getItem(SAVES_KEY) || '[]');
+  if (!Array.isArray(value)) throw new Error('Invalid saved builds');
+  return value.filter(build => build && typeof build.name === 'string' && build.name && typeof build.ids === 'string');
+}
+
+function updateBuildButtons() {
+  loadBuild.disabled = !buildList.value;
+  deleteBuild.disabled = !buildList.value;
+}
+
+function renderBuilds(selectedName = '') {
+  let builds;
+  try { builds = readBuilds(); }
+  catch (e) {
+    buildList.replaceChildren(new Option('無法讀取存檔', ''));
+    buildList.disabled = true;
+    updateBuildButtons();
+    saveStatus('無法讀取存檔，請檢查瀏覽器儲存設定。', true);
+    return;
+  }
+  buildList.replaceChildren(new Option(builds.length ? '選擇存檔…' : '尚無存檔', ''));
+  for (const build of builds) buildList.add(new Option(build.name, build.name));
+  buildList.disabled = builds.length === 0;
+  buildList.value = builds.some(build => build.name === selectedName) ? selectedName : '';
+  updateBuildButtons();
+}
+
+document.getElementById('open-saves').onclick = () => {
+  setPanelVisible(true);
+  const heading = document.getElementById('saves-heading');
+  heading.scrollIntoView({ block: 'nearest' });
+  heading.focus({ preventScroll: true });
 };
+buildList.onchange = updateBuildButtons;
+buildName.addEventListener('keydown', e => {
+  if (e.key === 'Enter') { e.preventDefault(); saveBuild.click(); }
+});
+saveBuild.onclick = () => {
+  const name = buildName.value.trim();
+  if (!name) { saveStatus('請先輸入存檔名稱。', true); buildName.focus(); return; }
+  if (!picked.size) { saveStatus('請先選擇天賦節點。', true); return; }
+  try {
+    const builds = readBuilds();
+    const index = builds.findIndex(build => build.name === name);
+    if (index !== -1 && !confirm(`「${name}」已存在，要覆蓋這個存檔嗎？`)) return;
+    const build = { name, ids: serializeSelection() };
+    if (index === -1) builds.push(build); else builds[index] = build;
+    localStorage.setItem(SAVES_KEY, JSON.stringify(builds));
+    buildName.value = name;
+    renderBuilds(name);
+    saveStatus(`已儲存「${name}」。`);
+  } catch (e) { saveStatus('無法儲存配點，請檢查瀏覽器儲存設定或空間。', true); }
+};
+loadBuild.onclick = () => {
+  try {
+    const build = readBuilds().find(item => item.name === buildList.value);
+    if (!build) { renderBuilds(); saveStatus('找不到這個存檔。', true); return; }
+    if (picked.size && serializeSelection() !== build.ids && !confirm('載入存檔會取代目前配點，要繼續嗎？')) return;
+    restoreSelection(build.ids);
+    hover = preview = null;
+    tip.style.display = 'none';
+    closeMenu();
+    selectionChanged();
+    buildName.value = build.name;
+    saveStatus(`已載入「${build.name}」。`);
+  } catch (e) { saveStatus('無法讀取存檔，請檢查瀏覽器儲存設定。', true); }
+};
+deleteBuild.onclick = () => {
+  const name = buildList.value;
+  if (!name || !confirm(`要刪除存檔「${name}」嗎？`)) return;
+  try {
+    const builds = readBuilds().filter(build => build.name !== name);
+    localStorage.setItem(SAVES_KEY, JSON.stringify(builds));
+    renderBuilds();
+    saveStatus(`已刪除「${name}」。`);
+  } catch (e) { saveStatus('無法刪除存檔，請檢查瀏覽器儲存設定。', true); }
+};
+addEventListener('storage', e => {
+  if (e.key === SAVES_KEY) renderBuilds(buildList.value);
+});
+renderBuilds();
 
 // saving the taken path in the url, node IDs separated by commas,
 // "id:choice" for multiple-choice nodes
 const saved = /#s=([\d,:]+)/.exec(location.hash);
-if (saved) for (const item of saved[1].split(',')) {
-  const [id, c] = item.split(':').map(Number);
-  const n = byId.get(id);
-  if (!n || !selectable(n) || picked.size >= MAX_PICK) continue;
-  picked.set(n.id, n);
-  if (n.v && n.v[c]) choice.set(n.id, c);
-}
-{
-  const reach = linked(null);
-  for (const id of [...picked.keys()]) if (!reach.has(id)) { picked.delete(id); choice.delete(id); }
-}
+if (saved) restoreSelection(saved[1]);
 if (innerWidth < 900 && !picked.size) panel.classList.add('hidden');
-document.getElementById('toggle').classList.toggle('on', !panel.classList.contains('hidden'));
+setPanelVisible(!panel.classList.contains('hidden'));
 updatePanel();
 
 const q = document.getElementById('q');

@@ -29,6 +29,19 @@ canvas.drag { cursor: grabbing; }
 #panel h3 { margin: 14px 0 4px; font-size: 12px; font-weight: normal; color: #9a8a6a; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #2a2a2a; padding-bottom: 2px; }
 #panel ul { list-style: none; margin: 0; padding: 0; }
 #empty { color: #777; margin: 4px 0; }
+#panel .build-saves { margin: 12px 0 14px; padding: 10px; border: 1px solid #4a3c28; background: #15120e; }
+#panel .saves-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; }
+#panel .saves-heading h3 { margin: 0; padding: 0; border: 0; color: #d8c8a0; font-size: 13px; letter-spacing: .04em; }
+#panel .saves-heading span { color: #8c806c; font-size: 11px; }
+#panel .save-row { display: flex; gap: 6px; margin-top: 6px; }
+#panel .save-row input, #panel .save-row select { min-width: 0; flex: 1; height: 30px; box-sizing: border-box; padding: 0 7px; background: #0b0b0b; color: #ddd; border: 1px solid #51432f; font: inherit; }
+#panel .save-row input:focus, #panel .save-row select:focus { outline: 1px solid #a98b55; outline-offset: 1px; }
+#panel .save-row button { height: 30px; padding: 0 9px; border-color: #675338; }
+#panel .save-row button:disabled { opacity: .4; cursor: not-allowed; }
+#panel .save-row button:disabled:hover { background: #1d1d1d; }
+#save-message { margin: 7px 0 0; color: #c8b589; font-size: 12px; overflow-wrap: anywhere; }
+#save-message:empty { display: none; }
+#save-message.error { color: #e8947f; }
 #effects li { color: #8888ff; white-space: pre-line; padding: 3px 0; border-bottom: 1px solid #1c1c1c; }
 #effects li .n { color: #777; font-size: 11px; margin-left: 4px; }
 #picked li { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; padding: 1px 0; }
@@ -60,6 +73,7 @@ canvas.drag { cursor: grabbing; }
 
 @media (max-width: 600px) {
   header nav a { margin-right: 6px; font-size: 12px; }
+  header .zoom { width: 100%; flex-wrap: wrap; }
   #q { width: 150px; }
   #panel { width: 100%; border-left: 0; }
 }

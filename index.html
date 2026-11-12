@@ -13,7 +13,8 @@
     <button id="in" title="放大">+</button>
     <button id="fit" title="整棵樹符合畫面">全覽</button>
     <button id="bg" title="顯示／隱藏背景（B）">背景</button>
-    <button id="toggle" title="顯示／隱藏已選面板">已選 <span id="badge">0</span></button>
+    <button id="open-saves" title="儲存或載入配點" aria-controls="panel">存檔</button>
+    <button id="toggle" title="顯示／隱藏已選面板" aria-controls="panel" aria-expanded="true">已選 <span id="badge">0</span></button>
   </div>
 </header>
 <canvas id="c"></canvas>
@@ -23,6 +24,22 @@
     <button id="clear">清除</button>
   </div>
   <p id="empty">點擊天賦樹上的節點即可選取（最多 <span id="max"></span> 點），效果會在這裡加總。有多個選項的節點會詢問你要選哪一個。</p>
+  <section class="build-saves" aria-labelledby="saves-heading">
+    <div class="saves-heading">
+      <h3 id="saves-heading" tabindex="-1">配點存檔</h3>
+      <span>保存在此瀏覽器</span>
+    </div>
+    <div class="save-row">
+      <input id="build-name" maxlength="40" placeholder="輸入存檔名稱" aria-label="存檔名稱" autocomplete="off">
+      <button id="save-build" type="button">儲存</button>
+    </div>
+    <div class="save-row">
+      <select id="build-list" aria-label="已儲存的配點"></select>
+      <button id="load-build" type="button">載入</button>
+      <button id="delete-build" type="button">刪除</button>
+    </div>
+    <p id="save-message" role="status" aria-live="polite"></p>
+  </section>
   <h3>效果加總</h3>
   <ul id="effects"></ul>
   <h3>已選節點</h3>
